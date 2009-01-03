@@ -1,0 +1,9 @@
+---
+layout: post
+title: First Greasemonkey Script
+---
+
+I just wrote my first greasemonkey script.  It's used to clean up the interface 
+to "Remember the Milk":http://www.rememberthemilk.com, an online Todo list.
+
+"RTM Cleanup Greasemonkey Script":/greasemonkey/rtmcleanup.user.js

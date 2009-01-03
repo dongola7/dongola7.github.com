@@ -195,3 +195,9 @@ ul.posts {
   #related h2 {
     margin-bottom: 1em;
   }
+
+h1.post-title {
+	font-size: larger;
+	text-align:left;
+	font-style: italic;
+}

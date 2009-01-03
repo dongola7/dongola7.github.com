@@ -1,0 +1,32 @@
+---
+layout: post
+title: git-svn in a secure environment
+---
+
+First, we need to create a new git repository from the SVN repository.  We'll do this using git-svn.
+
+# Run the command @git svn clone <SVN-URL>@ (i.e., @git svn clone svn://server/trunk@).  This may take a while depending on the size of the repository.
+# Set up your git ignore file based on the svn:ignore properties: @git svn show-ignore >> .git/info/exclude@
+# Create a copy of this git repository on a thumb-drive, CD, etc....
+
+Next, we'll move to the secure environment where we'll be making changes without access to SVN.
+
+# Copy the git repository from the removable media onto your work system.
+# Create a new git branch in which you'll record your changes.  You can do this with the command @git checkout -b <BRANCH-NAME>@ (i.e., @git checkout -b customer_site@).
+# Modify your code as usual.  Whenever you want to record some changes, run the following commands:
+## @git add .@ - Stages your changes in the git index 
+## @git commit@ - Commits all changes in the index to the repository.  You'll be asked for a commit message.
+
+Once all of your changes are complete and your ready to move back to the SVN repository, we'll create a set of patches identifying the changes and apply these patches to our git repository in the insecure environment.
+
+# Run the command @git format-patch master..@ - This will generate a series of .patch files, one per commit, for all of the changes you've made to your git branch.  The .patch files are in plaintext and can be examined by a third-party.
+# Take all of the .patch files back to the system in the insecure environment.  Copy the .patch files into your git working directory.
+# Run the command @git am *.patch@ to apply all of the patches.  After the patches are all applied, you can run @git log@ to see that they all show up.
+# Merge the latest changes from SVN into your git repository: @git svn rebase@.  You'll have to fix any conflicts that may arise.
+# Finally, push your changes from git back into the SVN repository: @git svn dcommit@.  And you're done.
+
+*CAVEATS:*
+
+# If you're using the svn:externals property anywhere, git-svn won't handle it.  This will complicate matters.
+# Make sure you don't change anything on the 'master' branch in git.  This will make it easier to move changes back and forth with the SVN repository since you'll only use the master branch for moving between SVN and git.
+# I have only loosely tested these instructions, so you'll want to try them out yourself before relying on them in a customer environment.  That being said, I think the basic workflow is sound.

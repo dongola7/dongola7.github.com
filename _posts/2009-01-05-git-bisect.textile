@@ -1,0 +1,35 @@
+---
+layout: post
+title: git-bisect found my bug
+---
+
+I had read about git-bisect a while ago, but since I've just started using 
+git in a full-time capacity, I hadn't had an opportunity to use it - until
+today.
+
+An automated benchmarking tool showed our software was running more slowly than
+usual.  I had recently made a large number of changes to introduce some new
+features and figured I must have messed something up.  Since there were around
+twenty or so commits between the good build and when benchmarking problems showed
+up, I figured this was a good opportunity to try out git-bisect.
+
+If you don't know, git-bisect basically automates the process of performing
+a binary search through your project history in order to identify when a bug was
+introduced.  In order to run, you do the following:
+
+# @git bisect start@
+# @git bisect bad@ - Indicate the current version has the problem.
+# @git bisect good <rev>@ - Indicate the rev in which the problem does not exist.
+
+At this point, git-bisect will checkout the revision in the middle of the current 
+revision and the last known good revision.  You can then test your code to see if 
+the problem exists in this revision.  If so, simply run @git bisect good@.  If not, 
+run @git bisect bad@.  Each time it's executed, git-bisect will tell you how many 
+revisions remain to be tested.  Once you hit zero, git-bisect will tell you the exact 
+revision in which the problem was introduced.
+
+Now clearly, you can do this with Subversion or most any other CM tool for that matter.
+You could probably even automate it.  But, how cool is it that git supports this sort
+of thing out of the box?
+
+Needless to say, I was able to find - and fix - my performance problem.

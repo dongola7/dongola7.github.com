@@ -198,7 +198,12 @@ ul.posts {
 }
 
 .post-date {
-	font-size: small;
+	font-size: smaller;
 	font-style: italic;
+	font-weight: normal;
 	color: #aaa;
+}
+
+#older-posts {
+	margin-top: 2em;
 }

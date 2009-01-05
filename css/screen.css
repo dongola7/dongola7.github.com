@@ -196,8 +196,15 @@ ul.posts {
     margin-bottom: 1em;
   }
 
-h1.post-title {
+.post-title {
 	font-size: larger;
 	text-align:left;
 	font-style: italic;
+	font-weight: bold;
+}
+
+.post-date {
+	font-size: small;
+	font-style: italic;
+	color: #aaa;
 }

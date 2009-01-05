@@ -3,9 +3,12 @@ layout: default
 title: Blair Kitchen
 ---
 <div id="home">
-	<h1 class="post-title">{{ site.posts[0].title }}</h1>
 	
-	<div id="post">{{ site.posts[0].content }}</div>
+	<div id="post">
+		<div class="post-title">{{ site.posts[0].title }}</div>
+		<div class="post-date">{{ site.posts[0].date | date_to_string }}</div>		
+		{{ site.posts[0].content }}
+	</div>
 	
 	<div id="older-posts">
 		<h1>Older Posts</h1>

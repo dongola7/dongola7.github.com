@@ -3,10 +3,19 @@ layout: default
 title: Blair Kitchen
 ---
 <div id="home">
-	<h1>Blog Posts</h1>
-	<ul class="posts">
-		{% for post in site.posts %}
-	    <li><span>{{ post.date | date_to_string }}</span> &raquo; <a href="{{ post.url }}">{{ post.title }}</a></li>
-	    {% endfor %}
-	</ul>
+	<h1 class="post-title">{{ site.posts[0].title }}</h1>
+	
+	<div id="post">{{ site.posts[0].content }}</div>
+	
+	<div id="older-posts">
+		<h1>Older Posts</h1>
+		<ul class="posts">
+			{% for post in site.posts offset:1 %}
+	    	<li>
+				<span>{{ post.date | date_to_string }}</span> 
+				&raquo; <a href="{{ post.url }}">{{ post.title }}</a>
+			</li>
+	    	{% endfor %}
+		</ul>
+	</div>
 </div>

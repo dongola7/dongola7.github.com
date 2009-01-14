@@ -2,7 +2,7 @@
 layout: nil
 ---
 <?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/atom">
+<feed xmlns="http://www.w3.org/2005/Atom">
 	<title>Blair Kitchen</title>
 	<link href="http://dongola7.github.com/atom.xml" rel="self"/>
 	<link href="http://dongola7.github.com/"/>

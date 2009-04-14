@@ -1,0 +1,15 @@
+---
+layout: post
+title: Removing the Digg Bar
+---
+
+I really don't like the new Digg bar.  It's really more of a personal
+preference than anything related to the potential link stealing and
+what not.  As such, I wrote a quick Greasemonkey script to get rid
+of the new Digg short URLs while browsing the site.  
+
+Hopefully someone finds it helpful.
+
+Just click "View Raw" in the below embedded gist to install.
+
+<script src="http://gist.github.com/94890.js"></script>

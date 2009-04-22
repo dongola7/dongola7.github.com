@@ -3,7 +3,6 @@ layout: post
 title: Todo Manager (Tcl Style)
 ---
 
-"Lifehacker":http://lifehacker.com had an interesting post about keeping track 
-of a Todo list in a simple "TXT file":http://www.lifehacker.com/software/to-do-managers/geek-to-live-readerwritten-todotxt-manager-173018.php.
+"Lifehacker":http://lifehacker.com had an interesting post about keeping track of a Todo list in a simple "TXT file":http://www.lifehacker.com/software/to-do-managers/geek-to-live-readerwritten-todotxt-manager-173018.php.
 
 They even went so far as to create a UNIX shell script for managing said file.  I wanted to try it out at work, but we use Windows (not by choice), and I didn't want to bother installing Cygwin.  I rewrote the script as a small Tcl program, and posted it on "Google Code":http://code.google.com/p/blairkitchen/source/browse/todo/trunk/todo.tcl.

@@ -1,0 +1,12 @@
+---
+layout: post
+title: The Podcast Flag and iTunes
+---
+
+One of my favorite podcasts, "Insomnia Radio's Daily Dose":http://insomniaradio.net/category/ir-daily-dose/, delivers a single MP3 containing a new track each day.  When I really like a track, I want to include it in my iTunes library as a standard music track.   The problem is that iTunes embeds a podcast flag in the ID3 tags of the file, making it difficult to treat the MP3 as a standard music track.
+
+After some investigation, I found that iTunes adds an extra ID3 frame with text label @PCST@ to the MP3 file header.
+
+I wrote a quick C program, "strip_podcast":http://github.com/dongola7/strip_podcast/tree/master, to remove this ID3 frame from a named MP3 file.  After running the program, the file can be added back into iTunes as a standard MP3 file.
+
+See the included @README.textile@ file for a description of how to build and run the program.

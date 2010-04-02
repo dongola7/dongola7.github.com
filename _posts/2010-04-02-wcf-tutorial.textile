@@ -19,7 +19,7 @@ If any of the methods return a class or struct, then that class/struct must have
 
 h3. Working Example
 
-This example code is available on GitHub at http://github.com/dongola7/wcf_chatter.  The repository contains a working VS 2008 solution implementing the chat service described here.
+This example code is available on GitHub in the "wcf_chatter repository":http://github.com/dongola7/wcf_chatter.  The repository contains a working VS 2008 solution implementing the chat service described here.
 
 h4. Interfaces
 

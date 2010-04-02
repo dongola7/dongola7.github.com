@@ -1,3 +1,8 @@
+---
+layout: post
+title: A WCF Tutorial
+---
+
 h3. Introduction
 
 I'm recently coming out of a job in which I was learning the basics of WCF.  We used the Microsoft .NET platform extensively, and had used .NET Remoting in some past projects.  Various problems with .NET Remoting led us to choose WCF for a new project.

@@ -1,0 +1,339 @@
+h3. Introduction
+
+I'm recently coming out of a job in which I was learning the basics of WCF.  We used the Microsoft .NET platform extensively, and had used .NET Remoting in some past projects.  Various problems with .NET Remoting led us to choose WCF for a new project.
+
+I wrote up this basic tutorial based on some lessons learned with WCF and am posting it here in hopes that it might help someone out (and also so I have a place to look when I inevitably forget everything).  I wish I had found a similar tutorial when starting out with WCF.
+
+h3. What is WCF
+
+The main idea with WCF is that you define service contracts and data contracts.  A service contract identifies an interface that will be implemented by a WCF service.  Clients are guaranteed that the service implement this interface and can therefore call all of the appropriate methods.  Data contracts identify classes and structs that may be transmitted across the wire from client to server and server to client.
+
+In order to identify an interface as a service contract, it must have the @ServiceContract@ attribute applied to it.  Any methods on the interface that will be exposed to the client will need to have the @OperationContract@ applied.
+
+If any of the methods return a class or struct, then that class/struct must have the @DataContract@ attribute applied.  This allows WCF to serialize the object across the wire.  Further, any members of the class/struct that are to be serialized need to have the @DataMember@ attribute applied.
+
+h3. Working Example
+
+This example code is available on GitHub at http://github.com/dongola7/wcf_chatter.  The repository contains a working VS 2008 solution implementing the chat service described here.
+
+h4. Interfaces
+
+Let's take a simple example of a chat server (I think everyone can understand a chat server).  A chat server has three main functions: allow users to login, allow users to logout, allow users to send messages to all other logged in users.  An interface that exposes these three methods might appear as follows:
+
+<pre><code>
+[ServiceContract]
+public interface IChatService
+{
+   [OperationContract]
+   void Login(string userName);
+   
+   [OperationContract]
+   void Logout();
+   
+   [OperationContract]
+   void SendMessage(string message);   
+}
+</code></pre>
+
+Note the @ServiceContract@ and @OperationContract@ attributes.  The interface is tagged with the @ServiceContract@ attribute which identifies to WCF that this interface will be made available to client code.  Each of the methods in the interface is tagged with the @OperationContract@ attribute, identifying that each of the methods will be exposed to clients.  It is possible to have methods declared on an interface that _do not_ have the @OperationContract@ attribute.  These methods _would not_ be available to connected clients.
+
+Let's assume that we went to design we review and it was pointed out that this interface has no way of enumerating the currently logged in users.  Management wants a way of listing these users and the time at which they logged into the chat server.  The interface can be extended to look as follows:
+
+<pre><code>
+[ServiceContract]
+public interface IChatService
+{
+   [OperationContract]
+   void Login(string userName);
+   
+   [OperationContract]
+   void Logout();
+   
+   [OperationContract]
+   void SendMessage(string message);
+   
+   ChatUser[] LoggedInUsers
+   {
+      [OperationContract]
+      get;
+   }
+}
+</code></pre>
+
+We've added a property to the interface that allows us to retrieve a list of currently logged in users.  Note that, for properties, the @OperationContract@ attribute is applied to either the @get@ or @set@ portion of the property, rather than the property itself.  The property returns an array of @ChatUser@ instances.  So, the @ChatUser@ class will need to be serialized across the wire.  This means we'll need to use the @DataContract@ and @DataMember@ attributes as follows:
+
+<pre><code>
+[DataContract]
+public class ChatUser
+{
+   [DataMember]
+   public string UserName {get;set;}
+   
+   [DataMember]
+   public DateTime LogInTime {get;set;}
+}
+</code></pre>
+
+Notice that the @ChatUser@ class is tagged with the @DataContract@ attribute.  This identifies to WCF that the class may be serialized.  Further, the @DataMember@ attribute is applied to each of the properties in the class.  This identifies to WCF that these properties should be serialized.  It is possible to declare other properties or fields that _do not_ have the @DataMember@ attribute applied.  These _would not_ be serialized.  This is useful if a class maintains some sort of cache, for example.  You might not want to transmit the cache across the wire, as it could be large.  You'd rather have the client simply regenerate the cache if needed.
+
+At this stage, we have more or less defined the server-side interfaces for our chat software.  But what about the client?  How does the chat server send messages to a client?  In order to do so, we need to use what are called _Callback Contracts_.
+
+A _Callback Contract_ is applied to a server-side interface and identifies _another_ interface that is expected to be implemented by the client.  The server may then assume there are certain methods available on the client that it may call.  Let's start by defining the interface that will be implemented by the client.
+
+<pre><code>
+public interface IChatClient
+{
+   [OperationContract(IsOneWay = true)]
+   void ReceiveMessage(string userName, string message);
+}
+</code></pre>
+
+A chat client will implement the @IChatClient@ interface.  Each time @ReceiveMessage@ is called, it can then print the message to the screen.  Notice that we are using the @OperationContract@ attribute, but _not_ the @ServiceContract@ attribute.  This is because the client is not implementing a service, just a callback.  Also note the user of @IsOneWay@ in the @OperationContract@ attribute.  What this means is that the caller does not wait for the method to complete before returning.  In normal WCF operations, when a remote method is called, the caller waits for a response from the remote system before returning.  In this case, we could run into performance problems when using the normal procedure.  What if the server had 100 clients connected and each client's @ReceiveMessage@ method took 1 second to execute?  It would then take 100 seconds for the server to fully distribute a single chat message -- not optimal.  The chat server doesn't really _care_ if the client is done or not, it just needs to ship off the message and move on, so we use the @IsOneWay@ property to indicate we don't want the default process.
+
+Finally, in order for WCF to understand what's going on here, we need to hook all of this up and identify that @IChatClient@ is the callback contract for @IChatService@.  We do this by modifying the @ServiceContract@ attribute on @IChatService@.  Our @IChatService@ interface is now defined as follows:
+
+<pre><code>
+[ServiceContract(CallbackContract = typeof(IChatClient))]
+public interface IChatService
+{
+   [OperationContract]
+   void Login(string userName);
+   
+   [OperationContract]
+   void Logout();
+   
+   [OperationContract]
+   void SendMessage(string message);
+   
+   ChatUser[] LoggedInUsers
+   {
+      [OperationContract]
+      get;
+   }
+}
+</code></pre>
+
+Now all of our interfaces are defined in a manner that is usable by WCF.  We can place all of these interfaces and classes in a ChatInterfaces project in Visual Studio, allowing them to be shared between server and client implementations.
+
+h4. Client
+
+The client in our example is composed of three pieces:
+
+# The connection code
+# The client callback (@IChatClient@) implementation
+# A .NET XML configuration file containing WCF config information.
+
+Let's start with the @IChatClient@ implementation, as it is extremely straightforward.  We define a class, @ChatClientImpl@, as follows:
+
+<pre><code>
+class ChatClientImpl : IChatClient
+{
+   public void ReceiveMessage(string userName, string message)
+   {
+      Console.WriteLine("{0}: {1}", userName, message);
+   }
+}
+</code></pre>
+
+Yes, that's it.  No WCF stuff, just a standard .NET class implementing an interface.  When @ReceiveMessage@ is called we simply print the message to the Console.
+
+The connection code is a little more complex, but not by much.
+
+<pre><code>
+var channelFactory = new DuplexChannelFactory<IChatService>(new ChatClientImpl(), "ChatServiceEndpoint");
+IChatService server = channelFactory.CreateChannel();
+server.Login(Environment.UserName);
+
+// Do some stuff such as reading messages from the user and sending them to the server
+
+server.Logout();
+channelFactory.Close();
+</code></pre>
+
+In the above code, the @DuplexChannelFactory@ is used to actually connect to the chat server.  A @ChatClientImpl@ instance is passed as the callback object.  Any object could be passed, as long as it implements the @IChatClient@ interface.  This is the object that will be called by the server.  The final argument to the constructor is the name of an endpoint to which the connection should be established.  Notice there is no computer name, port number, IP address, or anything else.  All of this goes in the configuration file, which we'll get to next.
+
+As a side note, there is also a @ChannelFactory@ class that is near identical to @DuplexChannelFactory@.  The difference is that it's constructor does not accept a callback object.  If you have an @ServiceContract@ that does not declare a callback contract, the @ChannelFactory@ class should be used rather than @DuplexChannelFactory@.
+
+The call to @CreateChannel@ in the next line returns our server interface.  Note that a connection to the server _is not yet established_.  In order to do so, you actually have to call a method on the service.  Keep this in mind when writing client programs.  Just calling @CreateChannel@ will not identify whether or not the connection is valid.
+
+Next, we login to the server using the @Login@ method declared on the @IChatService@ interface.  Some application specific logic would then take place, before we call @Logout@ on the service interface and @Close@ the @DuplexChannelFactory@.
+
+As stated earlier, all of the items such as computer name, port number, etc., are included not in the client application code, but, rather in the App.config file.  When built, this file is copied to &lt;exe-name&gt;.exe.config (i.e., ChatClient.exe.config).  The values in this file are available to the .NET environment at runtime.  Our App.config file for the client is as follows:
+
+<pre><code>
+<configuration>
+  <system.serviceModel>
+    <client>
+      <endpoint name="ChatServiceEndpoint"
+                address="net.tcp://localhost:8080/ChatService"
+                binding="netTcpBinding"
+                bindingConfiguration="BindingConfiguration"
+                contract="ChatInterfaces.IChatService">
+        <identity>
+          <servicePrincipalName value=""/>
+        </identity>
+      </endpoint>
+    </client>
+
+    <bindings>
+      <netTcpBinding>
+        <binding name="BindingConfiguration"
+                 transferMode="Buffered"/>
+      </netTcpBinding>
+    </bindings>
+  </system.serviceModel>
+</configuration>
+</code></pre>
+
+Most of the config file is boilerplate code that can be re-used.  Reading the WCF documentation will explain most of these fields as well.  The important items are the @endpoint@ XML element.  Specifically, the @name@, @address@, @binding@, and @contract@ attributes.
+
+The @name@ attribute identifies the name of the endpoint.  This is the string passed to the @DuplexChannelFactory@ constructor and allows WCF to locate the appropriate endpoint in the configuration file (multiple endpoints may be included).
+
+The @address@ attribute identifies the URI for the chat server.  We are using the WCF NetTcp binding (more on this later), so the URI scheme is @net.tcp@.  Following this is the hostname and port number which indicate the chat server is running on @localhost@ and listening for connections at port 8080.  Finally, the path, @/ChatService@ identifies the name of the service (a single server can host multiple services that appear at different paths, @/ChatServiceVersion1@ and @/ChatServiceVersion2@, for example).
+
+The @binding@ attribute identifies the binding type.  WCF supports a number of different communication protocols, which are referred to as _bindings_.  In most of our cases, @netTcpBinding@ is the appropriate choice.  It's the most efficient implementation in terms of bandwidth and performance, but can only be used when all of your server and client instances are using WCF (which is our situation).
+
+Finally, the @contract@ attribute identifies the name of the interface being provided by the server.  The fully qualified name (including namespaces) is required.  In our case, this is @ChatInterfaces.IChatService@.
+
+h4. Server
+
+The chat server is composed of three pieces:
+
+# The actual service implementation (the class that implements @IChatService@)
+# The service host (the code that actually hosts the service, opens listening ports, etc.)
+# The configuration file
+
+Let's start with the @ChatServiceImpl@ class.  This is the class that implements the @IChatService@ interface.  The class is declared as follows:
+
+<pre><code>
+[ServiceBehavior(ConcurrencyMode = ConcurrencyMode.Single, InstanceContextMode = InstanceContextMode.Single)]
+class ChatServiceImpl : IChatService
+</code></pre>
+
+The class itself is declared in the same manner as any other class that implements an interface.  The @ServiceBehavior@ attribute is the important part.  This attribute identifies to WCF that the class is implementing a WCF service, and also identifies how the service should behave.  
+
+The @ConcurrencyMode@ attribute indicates whether or not the service supports threading.  We specified @ConcurrencyMode.Single@.  This means that the WCF framework will make sure only one thread is ever executing the methods on our object at a single point in time.  There is no need for thread-safety in our code.  For high-volume services, this would be a performance bottleneck, as two client requests could not be serviced simultaneously.  There are other options as well: @ConcurrencyMode.Reentrant@ and @ConcurrencyMode.Multiple@.  Further descriptions of these modes can be found in the WCF documentation.
+
+The @InstanceContextMode@ attribute identifies whether this is a singleton service (one object serves all clients), or whether multiple instances are created.  In most of our situations, @InstanceContextMode.Single@ is the appropriate choice.  The class implements a service and all clients talk to the same object instance.
+
+The @Login@ method is illustrative of how the class works overall.  It is defined as follows:
+
+<pre><code>
+public void Login(string userName)
+{
+    var connection = OperationContext.Current.GetCallbackChannel<IChatClient>();
+    var user = new ChatUser {UserName = userName, LogInTime = DateTime.Now};
+    _users[connection] = user;   
+}
+</code></pre>
+
+In the above code, @_users@ is declared as a class scope variable with the type @Dictionary<IChatClient, ChatUser>@.  Most of this code is straightforward, except for the @OperationContext.Current.GetCallbackChannel<IChatClient>@ call.  This call will retrieve the @IChatClient@ interface used to communicate with the client calling the current method.  So, if the server was operating on ComputerA, and the client on ComputerB, this call would retrieve the interface that allows ComputerA to send messages back to ComputerB.  We place this @IChatClient@ in the dictionary for later use in broadcasting messages from @SendMessage@.
+
+The @SendMessage@ method illustrates the usage of these collected @IChatClient@ interfaces.  Each time @SendMessage@ is called by a client, the server is supposed to broadcast the message to all _other_ clients (it should not repeat the message back to the sender).
+
+<pre><code>
+public void SendMessage(string message)
+{
+    var connection = OperationContext.Current.GetCallbackChannel<IChatClient>();
+    ChatUser user;
+    if(!_users.TryGetValue(connection, out user))
+        return;
+
+    foreach (var otherConnection in _users.Keys)
+    {
+        if(otherConnection == connection)
+            continue;
+        otherConnection.ReceiveMessage(user.UserName, message);
+    }
+}
+</code></pre>
+
+Again, we retrieve the current @IChatClient@ interface using @OperationContext.Current.GetCallbackChannel<IChatClient>@.  We then look up the username for this client, and finally iterate through all connected clients, calling @ReceiveMessage@ for each of them.  Note the use of the @if...then@ statement to prevent broadcasting the message back to the sender.
+
+As you can see, aside from the @ServiceBehavior@ attribute and the use of @OperationContext.Current.GetCallbackChannel<IChatClient>@, this class is the same as other .NET classes.  The remainder of the @ChatServiceImpl@ class should, therefore, be self-explanatory.
+
+Now that the chat server itself is implemented, we need to somehow host the service in an executable.  The ChatServer console program does just this.  The @Main@ method is defined as follows:
+
+<pre><code>
+var chatService = new ChatServiceImpl();
+var host = new ServiceHost(chatService);
+
+host.Open();
+
+Console.WriteLine("Server is running");
+Console.WriteLine("Press any key to exit...");
+Console.ReadKey();
+
+host.Close();
+</code></pre>
+
+In the hosting executable, we create a new @ChatServiceImpl@ instance, and then pass this instance to a @ServiceHost@.  @ServiceHost@ is a class provided by the WCF framework and is used for hosting WCF services.  Next, we @Open@ the @ServiceHost@, which starts the service listening for connections.  The next three lines simply serve to prevent the console program from exiting until the user presses a key.  Then we call @Close@ to shut down the @ServiceHost@ and that's it.
+
+But wait, where is the port number and other details needed by the server?  How does WCF know all of this stuff?  Just like the client program, we place all of this information in the App.config file.
+
+<pre><code>
+<configuration>
+  <system.serviceModel>
+    <services>
+      <service name="ChatServer.ChatServiceImpl">
+        <endpoint address="net.tcp://localhost:8080/ChatService"
+                  binding="netTcpBinding"
+                  bindingConfiguration="BindingConfiguration"
+                  name="ChatServiceEndPoint"
+                  contract="ChatInterfaces.IChatService">
+        </endpoint>
+      </service>
+    </services>
+
+    <bindings>
+      <netTcpBinding>
+        <binding name="BindingConfiguration"
+                 transferMode="Buffered"/>
+      </netTcpBinding>
+    </bindings>
+  </system.serviceModel>
+</configuration>
+</code></pre>
+
+This App.config file is _very_ similar to that of the client.  Again, we have an @endpoint@ element which works in a very similar manner to the client, save that @address@ is now used to open a TCP/IP port for listening rather than connection.
+
+The @endpoint@ element is wrapped in a @service@ element.  This identifies to WCF that this endpoint is to be used by a service, rather than a client.  The @name@ attribute identifies the name of the class providing the service implementation, or @ChatServiceImpl@ in our case.  Just like the @contract@ attribute, the fully qualified name, including namespaces is required.
+
+The WCF framework, through the @ServiceHost@ constructor, knows that a @ChatServiceImpl@ has been passed as the service object.  It then looks through the App.config file to locate an @service@ element with a matching name.  If none is found, a runtime error will be generated.
+
+h5. A Note about Dead-Lock
+
+Note that this code includes the possibility of creating a dead-lock.  A dead-lock could occur in the following situation:
+
+# We remove the @IsOneWay@ attribute from @IChatClient.ReceiveMessage@.
+# ClientA calls @IChatService.SendMessage@
+# Server calls @IChatClient.ReceiveMessage@ on ClientB
+# ClientB calls any method on @IChatService@ _from within_ the @IChatClient.ReceiveMessage@ method.
+
+The reason for the dead-lock is that the service is declared with @ConcurrencyMode.Single@.  Remember that this means the WCF framework prevents multiple threads from calling methods on the service object simultaneously.  In our above scenario, there is a call to @SendMessage@ being executed, which in turn calls out to @ReceiveMessage@, which then tries to call back _into_ @IChatService@.  The WCF framework will not execute this call until the original @SendMessage@ is completed, which means the client will not return, and thus the call to @ReceiveMessage@ will not return, and thus, the original @SendMessage@ call will not return.
+
+There are two ways to fix this deadlock.
+
+# Keep the @IsOneWay@ attribute on @IChatClient.ReceiveMessage@.  Recall that this means the server _does not have to wait_ for the client to return before continuing, thus no dead-lock can occur.
+# Replace the @ConcurrencyMode.Single@ with either @ConcurrencyMode.Reentrant@ or @ConcurrencyMode.Multiple@.  Be sure to read the documentation on these modes, however, and be aware that you will have to manage multi-threaded access yourself (meaning the service implementation will need to be thread-safe).
+
+This is a complex situation, but it has already happened once in our NExT service implementations, so it is definitely something to be aware of.
+
+h4. Running the example
+
+Download the code from the GitHub repository.  Open the solution in VS 2008 and build the solution.  The @bin\Debug@ or @bin\Release@ directory will contain both the @ChatServer@ and @ChatClient@ executables.  Try executing a single server ad two clients on your system to see everything in action.
+
+h3. Further Reading
+
+These articles provide further information on WCF and include best practices for passing errors across the wire (exceptions don't come across the wire in WCF), as well as further details on the items described in this tutorial.
+
+* "DEVELOPING A WCF SERVICE - FAULT EXCEPTIONS AND FAULT CONTRACTS":http://blogit.create.pt/blogs/marcosilva/archive/2008/05/18/Developing-a-WCF-Service-_2D00_-Fault-Exceptions-AND-FAULT-Contracts.aspx
+* "Inheritance not supported on callback contracts?":http://social.msdn.microsoft.com/Forums/en-US/wcf/thread/ef896836-dec1-4fa6-9956-e3a4958643ce
+* "Specifying and Handling Faults in Contracts and Services":http://msdn.microsoft.com/en-us/library/ms733721.aspx
+* "Exception Handling in WCF Web Service":http://blogs.msdn.com/brajens/archive/2007/04/23/exception-handling-in-wcf-web-service.aspx
+* "Error Reporting in WCF Service?":http://stackoverflow.com/questions/992883/error-reporting-in-wcf-service
+* "The no frills, bare-bones example to Duplex WCF":http://realfiction.net/Content/Entry/113
+** This is another working example of WCF with callbacks.  It expects a little more working knowledge of WCF than this tutorial.
+* "Error in Net.Tcp + CallBack Contract + Streaming":http://social.msdn.microsoft.com/forums/en-US/wcf/thread/9b73383c-2db9-4db6-87b4-67833075783d/
+* "Hosting WCF Services":http://www.code-magazine.com/articleprint.aspx?quickid=0701041&page=2&printmode=true
+** Note the WCFChatter example uses self-hosting.

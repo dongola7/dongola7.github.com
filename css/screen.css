@@ -207,3 +207,21 @@ ul.posts {
 #older-posts {
 	margin-top: 2em;
 }
+
+/*****************************************************************************/
+/*
+/* Disqus
+/*
+/*****************************************************************************/
+#disqus_thread {
+	border-top: 4px solid #eee;
+    margin-top: 2em;
+}
+
+.dsq-by {
+	display: none !important;
+}
+
+.dsq-options {
+	display:none !important;
+}
